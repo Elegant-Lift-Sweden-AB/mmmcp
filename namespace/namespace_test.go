@@ -113,3 +113,18 @@ func TestResourceIdentitiesRejectMalformedValues(t *testing.T) {
 		t.Fatal("ResourceTemplate accepted malformed syntax")
 	}
 }
+
+func TestUIResourcesKeepUIScheme(t *testing.T) {
+	resource, err := Resource("images_", "ui://images/review.html")
+	if err != nil || resource != "ui://images_/images/review.html" {
+		t.Fatalf("Resource() = %q, %v", resource, err)
+	}
+	template, err := ResourceTemplate("docs", "ui://viewer/{id}")
+	if err != nil || template != "ui://docs/viewer/{id}" {
+		t.Fatalf("ResourceTemplate() = %q, %v", template, err)
+	}
+	unprefixed, err := Resource("", "ui://images/review.html")
+	if err != nil || unprefixed != "ui://images/review.html" {
+		t.Fatalf("Resource() without prefix = %q, %v", unprefixed, err)
+	}
+}

@@ -160,6 +160,7 @@ func compileTools(c *Catalog, server config.Server, prefix string, discovered []
 		}
 		clone := *tool
 		clone.Name = name
+		clone.Meta = rewriteUIMeta(prefix, tool.Meta)
 		if ok && override.OverrideDescription != "" {
 			clone.Description = override.OverrideDescription
 		}

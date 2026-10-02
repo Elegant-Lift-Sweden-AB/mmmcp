@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/obot-platform/mmmcp/namespace"
 )
 
 // RewriteCallToolResult clones a tool result and rewrites supported resource identities.
@@ -106,7 +107,46 @@ func (c *Catalog) toCompositeURI(prefix, original string) string {
 			}
 		}
 	}
+	if composite, err := namespace.Resource(prefix, original); err == nil {
+		return composite
+	}
 	return "mmmcp+" + prefix + ":" + original
+}
+
+// rewriteUIMeta points an MCP Apps tool's UI resource reference (_meta.ui.resourceUri and
+// the legacy flat key "ui/resourceUri") at the resource's exposed identity, so a host
+// reading the tool list can fetch the UI through the composite server.
+func rewriteUIMeta(prefix string, meta mcp.Meta) mcp.Meta {
+	if prefix == "" || meta == nil {
+		return meta
+	}
+	_, hasFlat := meta["ui/resourceUri"].(string)
+	ui, hasUI := meta["ui"].(map[string]any)
+	if !hasFlat && !hasUI {
+		return meta
+	}
+	clone := make(mcp.Meta, len(meta))
+	for key, value := range meta {
+		clone[key] = value
+	}
+	if uri, ok := meta["ui/resourceUri"].(string); ok {
+		if composite, err := namespace.Resource(prefix, uri); err == nil {
+			clone["ui/resourceUri"] = composite
+		}
+	}
+	if hasUI {
+		uiClone := make(map[string]any, len(ui))
+		for key, value := range ui {
+			uiClone[key] = value
+		}
+		if uri, ok := ui["resourceUri"].(string); ok {
+			if composite, err := namespace.Resource(prefix, uri); err == nil {
+				uiClone["resourceUri"] = composite
+			}
+		}
+		clone["ui"] = uiClone
+	}
+	return clone
 }
 
 // CompositeURI maps a component resource URI into its exposed identity.

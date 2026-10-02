@@ -22,7 +22,22 @@ func Resource(prefix, original string) (string, error) {
 	if prefix == "" {
 		return original, nil
 	}
+	if composite, ok := uiComposite(prefix, original); ok {
+		return composite, nil
+	}
 	return "mmmcp+" + prefix + ":" + original, nil
+}
+
+// MCP Apps hosts only render UI resources whose URI uses the ui:// scheme. A ui://
+// resource therefore keeps its scheme and carries the prefix as its first segment:
+// ui://<prefix>/<original authority and path>.
+const uiScheme = "ui://"
+
+func uiComposite(prefix, original string) (string, bool) {
+	if len(original) <= len(uiScheme) || !strings.EqualFold(original[:len(uiScheme)], uiScheme) {
+		return "", false
+	}
+	return uiScheme + prefix + "/" + original[len(uiScheme):], true
 }
 
 // ResourceTemplate constructs an exposed URI template, namespaced when prefix is non-empty.
@@ -40,6 +55,9 @@ func ResourceTemplate(prefix, original string) (string, error) {
 	}
 	if prefix == "" {
 		return original, nil
+	}
+	if composite, ok := uiComposite(prefix, original); ok {
+		return composite, nil
 	}
 	return "mmmcp+" + prefix + ":" + original, nil
 }
