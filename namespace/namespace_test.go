@@ -71,14 +71,14 @@ func TestPromptAndResourceIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resource != "mmmcp+docs:file:///notes" {
+	if resource != "file://docs//notes" {
 		t.Fatalf("Resource() = %q", resource)
 	}
 	template, err := ResourceTemplate("docs", "file:///{path}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if template != "mmmcp+docs:file:///{path}" {
+	if template != "file://docs//{path}" {
 		t.Fatalf("ResourceTemplate() = %q", template)
 	}
 }
@@ -122,6 +122,10 @@ func TestUIResourcesKeepUIScheme(t *testing.T) {
 	template, err := ResourceTemplate("docs", "ui://viewer/{id}")
 	if err != nil || template != "ui://docs/viewer/{id}" {
 		t.Fatalf("ResourceTemplate() = %q, %v", template, err)
+	}
+	opaque, err := Resource("docs", "urn:example:notes")
+	if err != nil || opaque != "urn:docs/example:notes" {
+		t.Fatalf("Resource() for opaque URI = %q, %v", opaque, err)
 	}
 	unprefixed, err := Resource("", "ui://images/review.html")
 	if err != nil || unprefixed != "ui://images/review.html" {

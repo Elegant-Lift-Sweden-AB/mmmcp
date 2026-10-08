@@ -110,17 +110,15 @@ func (c *Catalog) toCompositeURI(prefix, original string) string {
 	if composite, err := namespace.Resource(prefix, original); err == nil {
 		return composite
 	}
-	return "mmmcp+" + prefix + ":" + original
+	return original
 }
 
 // rewriteUIMeta points an MCP Apps tool's UI resource reference (_meta.ui.resourceUri and
-// the legacy flat key "ui/resourceUri") at the resource's exposed identity, so a host
-// reading the tool list can fetch the UI through the composite server.
-func rewriteUIMeta(prefix string, meta mcp.Meta) mcp.Meta {
-	if prefix == "" || meta == nil {
-		return meta
-	}
-	_, hasFlat := meta["ui/resourceUri"].(string)
+// the legacy flat key "ui/resourceUri") at the resource's exposed identity, including any
+// configured URI override, so a host reading the tool list can fetch the UI through the
+// composite server. Resources and templates must be compiled before tools.
+func (c *Catalog) rewriteUIMeta(prefix string, meta mcp.Meta) mcp.Meta {
+	flat, hasFlat := meta["ui/resourceUri"].(string)
 	ui, hasUI := meta["ui"].(map[string]any)
 	if !hasFlat && !hasUI {
 		return meta
@@ -129,10 +127,8 @@ func rewriteUIMeta(prefix string, meta mcp.Meta) mcp.Meta {
 	for key, value := range meta {
 		clone[key] = value
 	}
-	if uri, ok := meta["ui/resourceUri"].(string); ok {
-		if composite, err := namespace.Resource(prefix, uri); err == nil {
-			clone["ui/resourceUri"] = composite
-		}
+	if hasFlat {
+		clone["ui/resourceUri"] = c.toCompositeURI(prefix, flat)
 	}
 	if hasUI {
 		uiClone := make(map[string]any, len(ui))
@@ -140,9 +136,7 @@ func rewriteUIMeta(prefix string, meta mcp.Meta) mcp.Meta {
 			uiClone[key] = value
 		}
 		if uri, ok := ui["resourceUri"].(string); ok {
-			if composite, err := namespace.Resource(prefix, uri); err == nil {
-				uiClone["resourceUri"] = composite
-			}
+			uiClone["resourceUri"] = c.toCompositeURI(prefix, uri)
 		}
 		clone["ui"] = uiClone
 	}

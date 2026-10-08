@@ -203,10 +203,10 @@ func TestCompileAllFeaturesAppliesOverridesBeforeNamespace(t *testing.T) {
 	if got := compiled.Prompts(); len(got) != 1 || got[0].Name != "fancy_server__describe" || got[0].Description != "overridden prompt" {
 		t.Fatalf("prompts = %+v", got)
 	}
-	if got := compiled.Resources(); len(got) != 1 || got[0].URI != "mmmcp+fancy_server:file:///public" || got[0].Name != "public notes" || got[0].Description != "overridden resource" {
+	if got := compiled.Resources(); len(got) != 1 || got[0].URI != "file://fancy_server//public" || got[0].Name != "public notes" || got[0].Description != "overridden resource" {
 		t.Fatalf("resources = %+v", got)
 	}
-	if got := compiled.ResourceTemplates(); len(got) != 1 || got[0].URITemplate != "mmmcp+fancy_server:file:///public/{path}" || got[0].Name != "public files" || got[0].Description != "overridden template" {
+	if got := compiled.ResourceTemplates(); len(got) != 1 || got[0].URITemplate != "file://fancy_server//public/{path}" || got[0].Name != "public files" || got[0].Description != "overridden template" {
 		t.Fatalf("resource templates = %+v", got)
 	}
 	if route, ok := compiled.RouteTool("fancy_server__find"); !ok || route.Tool.Name != "search" {
@@ -215,10 +215,10 @@ func TestCompileAllFeaturesAppliesOverridesBeforeNamespace(t *testing.T) {
 	if route, ok := compiled.RoutePrompt("fancy_server__describe"); !ok || route.OriginalName != "explain" {
 		t.Fatalf("prompt route = %+v, %v", route, ok)
 	}
-	if route, ok := compiled.RouteResource("mmmcp+fancy_server:file:///public"); !ok || route.OriginalURI != "file:///notes" {
+	if route, ok := compiled.RouteResource("file://fancy_server//public"); !ok || route.OriginalURI != "file:///notes" {
 		t.Fatalf("resource route = %+v, %v", route, ok)
 	}
-	if route, ok := compiled.RouteResource("mmmcp+fancy_server:file:///public/report.txt"); !ok || route.OriginalURI != "file:///report.txt" {
+	if route, ok := compiled.RouteResource("file://fancy_server//public/report.txt"); !ok || route.OriginalURI != "file:///report.txt" {
 		t.Fatalf("template route = %+v, %v", route, ok)
 	}
 }
@@ -381,5 +381,33 @@ func TestCompileRewritesMCPAppsUIResourceReferences(t *testing.T) {
 	}
 	if appTool.Meta["ui"].(map[string]any)["resourceUri"] != ui || appTool.Meta["ui/resourceUri"] != ui {
 		t.Fatalf("component tool meta was mutated: %+v", appTool.Meta)
+	}
+}
+
+func TestCompileUIMetaFollowsResourceOverride(t *testing.T) {
+	const ui = "ui://viewer/card.html"
+	appTool := &mcp.Tool{Name: "show", InputSchema: map[string]any{"type": "object"}}
+	appTool.Meta = mcp.Meta{"ui": map[string]any{"resourceUri": ui}, "ui/resourceUri": ui}
+	discoverer := featureDiscoverer{features: map[string]*component.Features{
+		"Images": {Tools: []*mcp.Tool{appTool}, Resources: []*mcp.Resource{{URI: ui, Name: "card", MIMEType: "text/html;profile=mcp-app"}}},
+	}}
+	cfg := &config.Config{Servers: []config.Server{{
+		Name: "Images", Prefix: "images", URL: "https://images.invalid",
+		Resources: []config.ResourceOverride{{URI: ui, OverrideURI: "ui://public/card.html", Enabled: true}},
+	}}}
+	compiled, err := catalog.Compile(t.Context(), cfg, discoverer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const exposed = "ui://images/public/card.html"
+	if resources := compiled.Resources(); len(resources) != 1 || resources[0].URI != exposed {
+		t.Fatalf("resources = %+v", resources)
+	}
+	tools := compiled.Tools()
+	if len(tools) != 1 || tools[0].Meta["ui"].(map[string]any)["resourceUri"] != exposed || tools[0].Meta["ui/resourceUri"] != exposed {
+		t.Fatalf("tools = %+v", tools)
+	}
+	if route, ok := compiled.RouteResource(exposed); !ok || route.OriginalURI != ui {
+		t.Fatalf("route = %+v, %v", route, ok)
 	}
 }
